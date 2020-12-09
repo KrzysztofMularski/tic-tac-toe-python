@@ -131,16 +131,24 @@ def hu():
         images.append(io.imread('ideals/'+filename))
     
     img = rgb2gray(images[0])
+    img = 1-img
     mu1 = moments_central(img)
     nu1 = moments_normalized(mu1)
     mom1 = moments_hu(nu1)
 
     img = rgb2gray(images[1])
+    img = 1-img
     mu2 = moments_central(img)
     nu2 = moments_normalized(mu2)
     mom2 = moments_hu(nu2)
 
     return mom1[6], mom2[6]
+
+def chunkhu(chunk):
+    mu1 = moments_central(chunk)
+    nu1 = moments_normalized(mu1)
+    mom1 = moments_hu(nu1)
+    return mom1[6]
 
 def is_descending(line, height):
     if line[0] < 0:
@@ -219,13 +227,62 @@ def get_pxl_pos(i, j, hor, ver, height):
     
     return 0
 
-def get_crossed_point(line1, line2)
+def get_pxl_pos2(i,j,d):
+    if (i<d) and (j<d):
+        return 0
+    if (i<d) and (j<2*d):
+        return 1
+    if (i<d) and (j<3*d):
+        return 2
+    if (i<2*d) and (j<d):
+        return 3
+    if (i<2*d) and (j<2*d):
+        return 4
+    if (i<2*d) and (j<3*d):
+        return 5
+    if (i<3*d) and (j<d):
+        return 6
+    if (i<3*d) and (j<2*d):
+        return 7
+    if (i<3*d) and (j<3*d):
+        return 8
+
+def get_crossed_point(line1, line2):
     a1, b1 = line1
     a2, b2 = line2
+    x = (b1-b2)/(a2-a1)
+    y = a1*x+b1
+    return [x, y]
     
 
 def get_points(hor_tran, ver_tran):
-    return 
+    points = []
+    points.append(get_crossed_point(hor_tran[0], ver_tran[0]))
+    points.append(get_crossed_point(hor_tran[0], ver_tran[1]))
+    points.append(get_crossed_point(hor_tran[1], ver_tran[0]))
+    points.append(get_crossed_point(hor_tran[1], ver_tran[1]))
+    return points
+
+def dimensions(img, points, d,height,width):
+    leftup_x = points[0][0]-d
+    leftup_y = points[0][1]+d
+    rightup_x = points[1][0]+d
+    rightup_y = points[1][1]+d
+    leftdown_x = points[2][0]-d
+    leftdown_y = points[2][1]-d
+    rightdown_x = points[3][0]+d
+    rightdown_y = points[3][1]-d
+    newimg = np.zeros((3*d,3*d))
+    l = -1
+    m = -1
+    for j in range(int(-leftup_y),int(-(leftup_y-3*d)),1):
+            l+=1
+            m=-1
+            for k in range(int(leftup_x), int(leftup_x+3*d)):
+                m+=1
+                if(j < height) and (k < width):
+                    newimg[l][m] = img[j][k]
+    return newimg
 
 if __name__ == '__main__':
 
@@ -277,18 +334,34 @@ if __name__ == '__main__':
         d = int(d)
 
         points = get_points(hor_tran, ver_tran)
-        img_corners
-        #chunks = np.zeros((9, d, d))
-        chunks = np.zeros((9, height, width))
+        imgold = img
+        img = dimensions(img, points,d,height,width)
+        height = len(img)
+        width = len(img[0])
+        chunks = np.zeros((9, d, d))
+        #chunks = np.zeros((9, height, width))
         for j in range(height):
             for k in range(width):
-                chunks[get_pxl_pos(j, k, hor_tran, ver_tran, height)][j][k] = img[j][k]
-        
+                #chunks[get_pxl_pos(j, k, hor_tran, ver_tran, height)][j%d][k%d] = img[j][k]
+                chunks[get_pxl_pos2(j, k, d)][j%d][k%d] = img[j][k]
         fig_test = plt.figure(figsize=(20, 40))
         for i in range(9):
-            ax_test = fig_test.add_subplot(3, 3, i+1)
+            chunks[i] = fill(chunks[i])
+        for i in range(9):
+            moment = chunkhu(chunks[i])
+            if (abs(moment)-abs(kolko_hu7))<0.0001:
+                print("Znalazlem kolko w chunku: ", i)
+            elif (abs(moment)-abs(krzyzyk_hu7))<0.1:
+                print("Znalazlem krzyzyk w chunku: ", i)
+        for i in range(9):
+            ax_test = fig_test.add_subplot(4, 3, i+1)
             plt.axis('off')
             ax_test.imshow(chunks[i], cmap='gray')
+        ax_test = fig_test.add_subplot(4, 3, 10)
+        ax_test.imshow(imgold, cmap='gray')
+        ax_test = fig_test.add_subplot(4, 3, 11)
+        ax_test.imshow(img, cmap='gray')
         plt.savefig('test.pdf')
+
 
     #plt.savefig('processed.pdf')
