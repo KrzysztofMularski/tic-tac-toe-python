@@ -104,7 +104,7 @@ def processing(img):
 def hough(img):
     # Classic straight-line Hough transform
     # Set a precision of 0.5 degree.
-    tested_angles = np.linspace(-np.pi / 2, np.pi / 2, 360)
+    tested_angles = np.linspace(-np.pi / 2, np.pi / 2, 30)
     h, theta, d = hough_line(img, theta=tested_angles)
 
     # Generating figure 1
@@ -142,13 +142,44 @@ def hu():
     nu2 = moments_normalized(mu2)
     mom2 = moments_hu(nu2)
 
-    return mom1[6], mom2[6]
+    return mom1, mom2
 
 def chunkhu(chunk):
     mu1 = moments_central(chunk)
     nu1 = moments_normalized(mu1)
     mom1 = moments_hu(nu1)
-    return mom1[6]
+    return mom1
+
+def circle(huimg, diffo, huo):
+    sum = 0
+    for i in range(7):
+        sum += (abs(huimg[i])-abs(huo[i]))
+    if (sum < diffo):
+        return True
+    else:
+        return False
+
+def cross(huimg, diffx, hux):
+    sum = 0
+    for i in range(7):
+        sum += (abs(huimg[i])-abs(hux[i]))
+    if (sum < diffx):
+        return True
+    else:
+        return False
+
+def checkfield(img, diffx, diffo, hux, huo):
+    moment = chunkhu(img)
+    if (circle(moment,diffo,huo)):
+        #print("Chunk ", i, " is circle.")
+        return 1
+    elif (cross(moment,diffx,hux)):
+        #print("Chunk ", i, " is cross.")
+        return 2
+    else:
+        #print("Chunk ", i, " is empty.")
+        return 0
+
 
 def is_descending(line, height):
     if line[0] < 0:
@@ -292,19 +323,20 @@ if __name__ == '__main__':
         images.append(io.imread('pictures/'+filename))
     #images.append(io.imread('planes/'+list_files[1]))
 
-    correct_pics_ids = list(range(1))
+    correct_pics_ids = list(range(25))
     
     #correct_pics_ids.remove(0)
 
     #fig = plt.figure(figsize=(20, 40)) #
     
     kolko_hu7, krzyzyk_hu7 = hu()
-
-    for i in correct_pics_ids:
+    fig_test = plt.figure(figsize=(20, 40))
+    for p in correct_pics_ids:
 
         #ax = fig.add_subplot(7, 3, i+1) #
         #plt.axis('off') #
-        img = processing(images[i])
+        imgorg = images[p]
+        img = processing(images[p])
         #ax.imshow(img, cmap='gray')
         #axies = hough(img, ax) #
         axies = hough(img)
@@ -318,6 +350,9 @@ if __name__ == '__main__':
             else:
                 ver.append([y0,y1])
 
+        if len(hor) != 2 or len(ver) != 2:
+            print("Obrazek nr: ", p, " nie dziala")
+            continue
         hor_tran = []
         ver_tran = []
 
@@ -344,24 +379,31 @@ if __name__ == '__main__':
             for k in range(width):
                 #chunks[get_pxl_pos(j, k, hor_tran, ver_tran, height)][j%d][k%d] = img[j][k]
                 chunks[get_pxl_pos2(j, k, d)][j%d][k%d] = img[j][k]
-        fig_test = plt.figure(figsize=(20, 40))
         for i in range(9):
             chunks[i] = fill(chunks[i])
+
+        diffx = 0.1
+        diffo = 0.3
+        ax_test = fig_test.add_subplot(25, 10, p*10+1)
+        plt.axis('off')
+        ax_test.imshow(imgorg, cmap='gray')
+        ax_test.set_title("Original")
         for i in range(9):
-            moment = chunkhu(chunks[i])
-            if (abs(moment)-abs(kolko_hu7))<0.0001:
-                print("Znalazlem kolko w chunku: ", i)
-            elif (abs(moment)-abs(krzyzyk_hu7))<0.1:
-                print("Znalazlem krzyzyk w chunku: ", i)
-        for i in range(9):
-            ax_test = fig_test.add_subplot(4, 3, i+1)
+            field = checkfield(chunks[i],diffx,diffo,krzyzyk_hu7, kolko_hu7)
+            ax_test = fig_test.add_subplot(25, 10, p*10+i+2)
             plt.axis('off')
             ax_test.imshow(chunks[i], cmap='gray')
-        ax_test = fig_test.add_subplot(4, 3, 10)
-        ax_test.imshow(imgold, cmap='gray')
-        ax_test = fig_test.add_subplot(4, 3, 11)
-        ax_test.imshow(img, cmap='gray')
-        plt.savefig('test.pdf')
+            if (field ==0):
+                ax_test.set_title("Empty")
+            elif (field ==1):
+                ax_test.set_title("Circle")
+            elif (field ==2):
+                ax_test.set_title("Cross")
+        #ax_test = fig_test.add_subplot(4, 3, 10)
+        #ax_test.imshow(imgold, cmap='gray')
+        #ax_test = fig_test.add_subplot(4, 3, 11)
+        #ax_test.imshow(img, cmap='gray')
+        plt.savefig('wyniki1-25.pdf')
 
 
     #plt.savefig('processed.pdf')
